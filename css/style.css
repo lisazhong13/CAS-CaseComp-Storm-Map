@@ -1,0 +1,78 @@
+body {
+  font-family: 'Roboto', sans-serif;
+  background-color: #f7f7f7;
+  text-align: center;
+}
+
+h1 {
+  font-family: 'Impact', sans-serif;
+  color: #2a4e7b;
+  text-align: center;
+}
+
+label {
+  font-family: 'Roboto', sans-serif;
+  color: #2a4e7b;
+  font-size: 16px;
+}
+
+input[type="number"],
+select {
+  width: 100px;
+  margin: 0 10px;
+}
+
+h2 {
+  font-weight: 300;
+  font-size: 18px;
+  margin-bottom: 40px;
+}
+
+.filter-container {
+  display: flex; /* Use flexbox for layout */
+  align-items: center; /* Center items vertically */
+  justify-content: center; /* Center items horizontally */
+  margin: 10px 0; /* Optional: Add some margin for spacing */
+}
+
+.filter-item {
+  display: flex; /* Use flexbox for layout */
+  align-items: center; /* Center items vertically */
+  margin: 0 10px; /* Add horizontal spacing between items */
+}
+
+.toggle-container {
+  display: flex; /* Use flexbox for layout */
+  align-items: center; /* Center items vertically */
+  margin-left: 20px; /* Add some space between the filter and toggle */
+}
+
+.toggle-container label {
+  margin-right: 5px; /* Add some space between the label and checkbox */
+}
+
+input[type="checkbox"] {
+  margin-left: 5px; /* Add some space to the left of the checkbox */
+}
+
+.property-popup {
+    min-width: 200px;
+    padding: 5px;
+}
+
+.year-slider {
+    margin: 10px 0;
+}
+
+.year-slider input {
+    width: 100%;
+    margin: 5px 0;
+}
+
+.property-info {
+    margin-top: 10px;
+}
+
+.property-info p {
+    margin: 5px 0;
+}

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Storm Trajectory Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <!-- Leaflet Draw CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+  <!-- Leaflet Draw JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    #storm-year-slider {
+      display: none; /* 隐藏滑块 */
+    }
+  </style>
+</head>
+<body>
+  <h1>Storm Trajectory Map</h1>
+
+  <div class="filter-container">
+    <div class="filter-item">
+      <label for="storm-select">Select Storm:</label>
+      <select id="storm-select">
+        <option value="all_storm" selected>All Storms</option>
+      </select>
+    </div>
+
+    <div class="filter-item">
+      <label for="year-range">Past</label>
+      <input type="number" id="year-range" min="1" value="100">
+      <label for="year-range">Years</label>
+    </div>
+
+    <div class="filter-item">
+      <input type="range" id="storm-year-slider" min="1980" max="2022" value="2022" step="1">
+    </div>
+
+    <div class="filter-item">
+      <label for="location-select">Select Location:</label>
+      <select id="location-select">
+          <option value="all" selected>All Locations</option>
+      </select>
+    </div>
+
+    <div class="filter-item">
+      <label for="impactful-select">Impactful:</label>
+      <select id="impactful-select">
+        <option value="all" selected>All</option>
+      </select>
+    </div>
+
+    <div class="toggle-container">
+      <label for="toggle-trajectories">Show Trajectories</label>
+      <input type="checkbox" id="toggle-trajectories" checked>
+    </div>
+  </div>
+
+  <div id="map" style="height: 600px; width: 100%;"></div>
+  <div id="legend" style="background: white; position: absolute; left: 600px; z-index: 500; width: 300px; display: flex; flex-direction: row; justify-content: space-between;">
+    <div style="flex: 1; margin-right: 10px;">
+        <h4>Storm Strength</h4>
+        <div style="height: 20px; background: linear-gradient(to right, #ffffcc, #ffcc00, #ff9900, #ff6600, #ff3300, #cc0000, #990000);"></div>
+    </div>
+    <div style="flex: 1;">
+        <h4>Property Location</h4>
+        <img src="img/house.png" alt="Property Location" style="width: 30px; height: 30px;">
+    </div>
+  </div>
+
+  <script src="https://d3js.org/d3.v6.min.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
