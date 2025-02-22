@@ -171,15 +171,11 @@ function addPropertyMarkersToMap() {
     map.addLayer(houseMarkers);
 }
 
-// 生成某个 location 的 popup HTML，包含 slider 和数据显示区域
 function createLocationPopup(locationId, properties) {
-    // 提取该 location 中所有年份，并排序
     const years = properties.map(p => p.PolicyYear).sort((a, b) => a - b);
     const minYear = years[0];
     const maxYear = years[years.length - 1];
-    // 默认选择最新年份
     const defaultYear = maxYear;
-    // 查找该年份对应的数据
     const property = properties.find(p => p.PolicyYear === defaultYear) || properties[0];
     
     return `
@@ -198,7 +194,6 @@ function createLocationPopup(locationId, properties) {
     `;
 }
 
-// 根据选定年份更新 popup 内显示的信息
 function updateLocationPopup(locationId, selectedYear) {
     const properties = propertyData[locationId];
     const property = properties.find(p => p.PolicyYear === selectedYear);
@@ -217,7 +212,7 @@ function initializeMap() {
     // Initialize the map
     map = L.map('map', {
         scrollWheelZoom: true // Enable scroll wheel zoom
-    }).setView([29.9, -86.7], 5); // Set initial view
+    }).setView([35.0, -50.0], 3); // Set initial view to a larger area
 
     // Add tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -267,6 +262,10 @@ function initializeMap() {
             console.warn('Layer does not support getBounds:', layer);
         }
     });
+
+    // Ensure trajectories are not shown initially
+    showTrajectories = false; // Set to false initially
+    applyFilters(); // Update the map based on the current filters
 }
 
 // Group to manage house markers
