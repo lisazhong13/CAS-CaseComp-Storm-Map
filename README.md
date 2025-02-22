@@ -2,8 +2,6 @@
 
 Welcome to the **Storm Trajectory Map** project! This interactive web application visualizes hurricane paths and provides filters to explore historical storm data based on location, storm name, and year. The project is built using **HTML**, **CSS**, **JavaScript**, **D3.js**, and **Leaflet.js**.
 
-![Storm Trajectory Map Screenshot](https://via.placeholder.com/800x400?text=Storm+Trajectory+Map+Preview)
-
 ---
 
 ## 🚀 **Features**
@@ -60,7 +58,7 @@ Now, open `http://localhost:5500` in your browser.
 ---
 
 ## 📊 **Data Source**
-The data used in this project originally comes from the **CAS DATA VISUALIZATION CASE STUDY**, I cleaned the provided data and **data** folder includes the following datasets:
+The data used in this project originally comes from the **CAS DATA VISUALIZATION CASE STUDY**, I cleaned the provided data, and **data** folder includes the following datasets:
 - StormData.csv
 - PropertyData.csv
 
@@ -78,7 +76,8 @@ Contributions are welcome! Here's how you can help:
 
 ## 🙌 **Acknowledgments**
 Special thanks to the developers of **D3.js**, **Leaflet.js**, and the **OpenStreetMap** community for providing the tools and data to make this project possible.
-Thanks to CAS for providing the dataset which is fundamental to this project.
+
+Thanks to **CAS** for providing the dataset which is fundamental to this project.
 
 ---
 
