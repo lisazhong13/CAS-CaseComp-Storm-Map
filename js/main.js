@@ -28,6 +28,9 @@ function loadData() {
             console.log('Year range changed:', this.value); // Debugging
             applyFilters();
         });
+        document.getElementById('premium-adequacy-filter').addEventListener('change', function() {
+            applyFilters();
+        });
         populateLocationDropdown();
         applyFilters();
     }).catch(error => console.error('Error loading CSV:', error));
@@ -69,10 +72,16 @@ function parsePropertyCSV(data) {
             Longitude: lng,
             TotalInsuredValue: +d['Total Insured Value'].replace(/,/g, ''),
             Premium: +d['Premium'].replace(/,/g, ''),
+            NonCatastropheLoss: +d['Non-Catastrophy Loss'].replace(/,/g, '') || 0,
+            EstimatedCatastropheLoss: +d['Estimated_Catastrophe_Loss'].replace(/,/g, '') || 0,
+            HurricaneLatitude: +d['Hurricane_Latitude'],
+            HurricaneLongitude: +d['Hurricane_Longitude'],
+            DistanceKm: +d['Distance_km'],
             PolicyYear: +d['PolicyYear'],
             AtRisk: d['AtRisk'],
             PML: +d['PML'],
-            LevelOfPML: d['Level of PML']
+            LevelOfPML: d['Level of PML'],
+            PremiumAdequacy: (+d['Non-Catastrophy Loss'].replace(/,/g, '') + (+d['Estimated_Catastrophe_Loss'].replace(/,/g, '')) <= (+d['Premium'].replace(/,/g, '')) ? 'adequate' : 'inadequate')
         });
     });
 
@@ -135,7 +144,6 @@ function drawLocationAreas() {
 let houseMarkers = new L.FeatureGroup(); 
 
 function addPropertyMarkersToMap() {
-    // 清除现有 marker 组（防止重复添加）
     houseMarkers.clearLayers();
     
     const houseIcon = L.icon({
@@ -271,7 +279,6 @@ function initializeMap() {
 // Group to manage house markers
 
 function addPropertyDataToMap() {
-    // Clear existing markers to avoid duplicates
     houseMarkers.clearLayers();
 
     const houseIcon = L.icon({
@@ -285,27 +292,32 @@ function addPropertyDataToMap() {
         const properties = propertyData[locationId];
         if (!Array.isArray(properties)) return;
 
-        // Get all years for this location
         const years = properties.map(p => p.PolicyYear).sort((a, b) => a - b);
         const minYear = years[0];
         const maxYear = years[years.length - 1];
         const latestYear = maxYear;
 
-        // Use the first property's location for the marker
         const firstProperty = properties[0];
         if (!firstProperty.Latitude || !firstProperty.Longitude) return;
 
-        // Create marker with house icon and dynamic popup content
         const marker = L.marker([firstProperty.Latitude, firstProperty.Longitude], { icon: houseIcon })
             .bindPopup(createPropertyPopup(locationId, properties, minYear, maxYear, latestYear));
 
-        // Add event listener when popup opens
         marker.on('popupopen', function() {
             const slider = document.getElementById(`year-slider-${locationId}`);
             if (slider) {
                 slider.addEventListener('input', function() {
                     updatePropertyInfo(locationId, properties, this.value);
                 });
+                // Draw initial connection
+                updatePropertyInfo(locationId, properties, slider.value);
+            }
+        });
+
+        marker.on('popupclose', function() {
+            if (hurricaneLayer) {
+                map.removeLayer(hurricaneLayer);
+                hurricaneLayer = null;
             }
         });
 
@@ -317,6 +329,10 @@ function addPropertyDataToMap() {
 
 function createPropertyPopup(locationId, properties, minYear, maxYear, defaultYear) {
     const currentProperty = properties.find(p => p.PolicyYear === defaultYear) || properties[0];
+
+    const adequacyStatus = currentProperty.PremiumAdequacy === 'adequate' ? 
+        '<span style="color: green;">✓ Adequate</span>' : 
+        '<span style="color: red;">✗ Inadequate</span>';
     
     return `
         <div class="property-popup">
@@ -333,7 +349,10 @@ function createPropertyPopup(locationId, properties, minYear, maxYear, defaultYe
             <div id="property-info-${locationId}" class="property-info">
                 <p>Total Insured Value: $${formatNumber(currentProperty.TotalInsuredValue)}</p>
                 <p>Premium: $${formatNumber(currentProperty.Premium)}</p>
+                <p>Non-Catastrophe Loss: $${formatNumber(currentProperty.NonCatastropheLoss)}</p>
+                <p>Estimated Catastrophe Loss: $${formatNumber(currentProperty.EstimatedCatastropheLoss)}</p>
                 <p>PML: $${formatNumber(currentProperty.PML)}</p>
+                <p>Premium Status: ${adequacyStatus}</p>
             </div>
         </div>
     `;
@@ -343,6 +362,10 @@ function updatePropertyInfo(locationId, properties, year) {
     const property = properties.find(p => p.PolicyYear === parseInt(year));
     if (!property) return;
 
+    const adequacyStatus = property.PremiumAdequacy === 'adequate' ? 
+        '<span style="color: green;">✓ Adequate</span>' : 
+        '<span style="color: red;">✗ Inadequate</span>';
+    
     // Update year display
     const yearDisplay = document.getElementById(`year-value-${locationId}`);
     if (yearDisplay) yearDisplay.textContent = year;
@@ -353,8 +376,52 @@ function updatePropertyInfo(locationId, properties, year) {
         infoDiv.innerHTML = `
             <p>Total Insured Value: $${formatNumber(property.TotalInsuredValue)}</p>
             <p>Premium: $${formatNumber(property.Premium)}</p>
+            <p>Non-Catastrophe Loss: $${formatNumber(property.NonCatastropheLoss)}</p>
+            <p>Estimated Catastrophe Loss: $${formatNumber(property.EstimatedCatastropheLoss)}</p>
             <p>PML: $${formatNumber(property.PML)}</p>
+            <p>Premium Status: ${adequacyStatus}</p>
         `;
+    }
+
+    // Draw hurricane connection
+    drawHurricaneConnection(property);
+}
+
+// Hurricane visualization layer
+let hurricaneLayer = null;
+
+function drawHurricaneConnection(property) {
+    // Clear previous layer
+    if (hurricaneLayer) {
+        map.removeLayer(hurricaneLayer);
+    }
+
+    // Create new layer
+    hurricaneLayer = new L.FeatureGroup();
+
+    // Add line connecting property to hurricane
+    const propertyCoords = [property.Latitude, property.Longitude];
+    const hurricaneCoords = [property.HurricaneLatitude, property.HurricaneLongitude];
+    
+    if (!isNaN(hurricaneCoords[0]) && !isNaN(hurricaneCoords[1])) {
+        const connectionLine = L.polyline([propertyCoords, hurricaneCoords], {
+            color: 'red',
+            weight: 2,
+            dashArray: '5,5'
+        }).addTo(hurricaneLayer);
+
+        // Add hurricane marker
+        const hurricaneIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41]
+        });
+
+        const hurricaneMarker = L.marker(hurricaneCoords, { icon: hurricaneIcon })
+            .bindPopup(`Hurricane Location<br>Distance: ${property.DistanceKm} km`)
+            .addTo(hurricaneLayer);
+
+        map.addLayer(hurricaneLayer);
     }
 }
 
@@ -499,6 +566,8 @@ function applyFilters(latMin = null, latMax = null, lngMin = null, lngMax = null
     const currentYear = new Date().getFullYear();
 	const selectedStormYear = parseInt(document.getElementById('storm-year-slider').value);
     const startYear = currentYear - pastYears; // Calculate the start year
+    const adequacyFilter = document.getElementById('premium-adequacy-filter').value;
+
 	console.log('pastYears:', pastYears); // Debugging
     console.log('startYear:', startYear); // Debugging
     console.log('currentYear:', currentYear); // Debugging
@@ -512,7 +581,8 @@ function applyFilters(latMin = null, latMax = null, lngMin = null, lngMax = null
         const isLocationSelected = (selectedLocation === "all" || property.Location === selectedLocation);
         const isLatValid = (!latMin || property.Latitude >= latMin) && (!latMax || property.Latitude <= latMax);
         const isLngValid = (!lngMin || property.Longitude >= lngMin) && (!lngMax || property.Longitude <= lngMax);
-        return isLocationSelected && isLatValid && isLngValid;
+        const isAdequacyMatch = (adequacyFilter === "all" || property.PremiumAdequacy === adequacyFilter);
+        return isLocationSelected && isLatValid && isLngValid && isAdequacyMatch;
     });
 
     d3.csv("data/StormData.csv").then(csvData => {

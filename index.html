@@ -56,7 +56,18 @@
       <label for="toggle-trajectories">Show Trajectories</label>
       <input type="checkbox" id="toggle-trajectories">
     </div>
+
+    <div class="toggle-container">
+      <label for="premium-adequacy-filter">Premium Status:</label>
+      <select id="premium-adequacy-filter">
+          <option value="all" selected>All</option>
+          <option value="adequate">Adequate</option>
+          <option value="inadequate">Inadequate</option>
+      </select>
+    </div>
   </div>
+
+
 
   <div id="map" style="height: 600px; width: 100%;"></div>
   <div id="legend" style="background: white; position: absolute; left: 600px; z-index: 500; width: 300px; display: flex; flex-direction: row; justify-content: space-between;">
