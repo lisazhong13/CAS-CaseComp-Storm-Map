@@ -233,7 +233,7 @@ function initializeMap() {
     // Add property data to the map
     addPropertyDataToMap();
 
-	addPropertyMarkersToMap();
+    addPropertyMarkersToMap();
 
     // Initialize drawing tools
     const drawnItems = new L.FeatureGroup();
@@ -252,6 +252,25 @@ function initializeMap() {
         }
     });
     map.addControl(drawControl);
+
+    // Add event listeners for all filters
+    document.getElementById('pml-filter').addEventListener('change', function() {
+        console.log('PML filter changed to:', this.value);
+        applyFilters();
+    });
+
+    document.getElementById('storm-select').addEventListener('change', function() {
+        const selectedStorm = this.value;
+        if (selectedStorm && stormCoordinates[selectedStorm]) {
+            const { latitude, longitude } = stormCoordinates[selectedStorm];
+            map.setView([latitude, longitude], 5);
+        }
+        applyFilters();
+    });
+
+    document.getElementById('location-select').addEventListener('change', applyFilters);
+    document.getElementById('year-range').addEventListener('input', applyFilters);
+    document.getElementById('premium-adequacy-filter').addEventListener('change', applyFilters);
 
     // Handle drawing creation
     map.on(L.Draw.Event.CREATED, function (event) {
@@ -272,8 +291,8 @@ function initializeMap() {
     });
 
     // Ensure trajectories are not shown initially
-    showTrajectories = false; // Set to false initially
-    applyFilters(); // Update the map based on the current filters
+    showTrajectories = false;
+    applyFilters();
 }
 
 // Group to manage house markers
@@ -546,6 +565,15 @@ function populateLocationDropdown() {
     console.log('Location dropdown populated:', locationIds);
 }
 
+function getPMLLevel(pmlValue) {
+    if (pmlValue >= 250000) {
+        return 'high';
+    } else if (pmlValue >= 100000) {
+        return 'medium';
+    } else {
+        return 'low';
+    }
+}
 
 function applyFilters(latMin = null, latMax = null, lngMin = null, lngMax = null) {
     const selectedStormValue = document.getElementById('storm-select').value;
@@ -555,21 +583,35 @@ function applyFilters(latMin = null, latMax = null, lngMin = null, lngMax = null
     const selectedStormYear = parseInt(document.getElementById('storm-year-slider').value);
     const startYear = currentYear - pastYears;
     const adequacyFilter = document.getElementById('premium-adequacy-filter').value;
+    const pmlFilter = document.getElementById('pml-filter').value;
 
-    console.log('Selected storm value:', selectedStormValue);
+    console.log('Applying filters with PML filter:', pmlFilter);
 
     // Flatten propertyData for filtering
     const allProperties = Object.entries(propertyData).flatMap(([locationId, properties]) =>
         properties.map(property => ({ ...property, Location: locationId }))
     );
 
+    console.log('Sample PML values:', allProperties.slice(0, 5).map(p => p.PML));
+
     const filteredPropertyData = allProperties.filter(property => {
         const isLocationSelected = (selectedLocation === "all" || property.Location === selectedLocation);
         const isLatValid = (!latMin || property.Latitude >= latMin) && (!latMax || property.Latitude <= latMax);
         const isLngValid = (!lngMin || property.Longitude >= lngMin) && (!lngMax || property.Longitude <= lngMax);
         const isAdequacyMatch = (adequacyFilter === "all" || property.PremiumAdequacy === adequacyFilter);
-        return isLocationSelected && isLatValid && isLngValid && isAdequacyMatch;
+        
+        // PML filtering
+        const propertyPMLLevel = getPMLLevel(property.PML);
+        const isPMLMatch = pmlFilter === "all" || propertyPMLLevel === pmlFilter;
+        
+        if (!isPMLMatch) {
+            console.log('Property filtered out - PML:', property.PML, 'Level:', propertyPMLLevel, 'Filter:', pmlFilter);
+        }
+
+        return isLocationSelected && isLatValid && isLngValid && isAdequacyMatch && isPMLMatch;
     });
+
+    console.log('Properties after filtering:', filteredPropertyData.length);
 
     d3.csv("data/StormData.csv").then(csvData => {
         const stormData = parseStormCSV(csvData);
