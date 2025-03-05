@@ -219,8 +219,8 @@ function updateLocationPopup(locationId, selectedYear) {
 function initializeMap() {
     // Initialize the map
     map = L.map('map', {
-        scrollWheelZoom: true // Enable scroll wheel zoom
-    }).setView([35.0, -50.0], 3); // Set initial view to a larger area
+        scrollWheelZoom: true
+    }).setView([35.0, -50.0], 3);
 
     // Add tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -489,35 +489,28 @@ function getColorForPML(level) {
 
 function populateStormDropdown(data) {
     const stormSelect = document.getElementById('storm-select');
-    const impactfulSelect = document.getElementById('impactful-select');
     
-    const stormNames = [...new Set(data.map(d => d.storm_name))];
-    console.log('Unique storm names:', stormNames);
+    // Create unique combinations of storm name and year
+    const stormNameYears = [...new Set(data.map(d => `${d.storm_name}_${d.year}`))];
+    console.log('Unique storm name-year combinations:', stormNameYears);
 
-    stormNames.forEach(name => {
+    // Clear existing options except "All Storms"
+    stormSelect.innerHTML = '<option value="all_storm" selected>All Storms</option>';
+
+    stormNameYears.forEach(nameYear => {
+        const [name, year] = nameYear.split('_');
         const option = document.createElement('option');
-        option.value = name;
-        option.textContent = name;
+        option.value = nameYear; // Use combined name_year as value
+        option.textContent = `${name} (${year})`;
         stormSelect.appendChild(option);
         
-        // Store the coordinates for each storm
-        const stormData = data.filter(d => d.storm_name === name);
+        // Store the coordinates for each storm by name and year
+        const stormData = data.filter(d => d.storm_name === name && d.year === parseInt(year));
         if (stormData.length > 0) {
-            stormCoordinates[name] = {
+            stormCoordinates[nameYear] = {
                 latitude: stormData[0].latitude,
                 longitude: stormData[0].longitude
             };
-        }
-    });
-
-    // Populate impactful options
-    const impactfulValues = [...new Set(data.map(d => d.impactful))];
-    impactfulValues.forEach(value => {
-        if (value && value.trim() !== "") {
-            const option = document.createElement('option');
-            option.value = value;
-            option.textContent = value;
-            impactfulSelect.appendChild(option);
         }
     });
 
@@ -528,10 +521,6 @@ function populateStormDropdown(data) {
             const { latitude, longitude } = stormCoordinates[selectedStorm];
             map.setView([latitude, longitude], 5);
         }
-        applyFilters();
-    });
-
-    impactfulSelect.addEventListener('change', function() {
         applyFilters();
     });
 }
@@ -559,18 +548,15 @@ function populateLocationDropdown() {
 
 
 function applyFilters(latMin = null, latMax = null, lngMin = null, lngMax = null) {
-    const selectedStorm = document.getElementById('storm-select').value;
+    const selectedStormValue = document.getElementById('storm-select').value;
     const pastYears = parseInt(document.getElementById('year-range').value);
-    const impactfulFilter = document.getElementById('impactful-select').value;
     const selectedLocation = document.getElementById('location-select').value;
     const currentYear = new Date().getFullYear();
-	const selectedStormYear = parseInt(document.getElementById('storm-year-slider').value);
-    const startYear = currentYear - pastYears; // Calculate the start year
+    const selectedStormYear = parseInt(document.getElementById('storm-year-slider').value);
+    const startYear = currentYear - pastYears;
     const adequacyFilter = document.getElementById('premium-adequacy-filter').value;
 
-	console.log('pastYears:', pastYears); // Debugging
-    console.log('startYear:', startYear); // Debugging
-    console.log('currentYear:', currentYear); // Debugging
+    console.log('Selected storm value:', selectedStormValue);
 
     // Flatten propertyData for filtering
     const allProperties = Object.entries(propertyData).flatMap(([locationId, properties]) =>
@@ -588,15 +574,20 @@ function applyFilters(latMin = null, latMax = null, lngMin = null, lngMax = null
     d3.csv("data/StormData.csv").then(csvData => {
         const stormData = parseStormCSV(csvData);
         const filteredStormData = stormData.filter(row => {
-            const isStormSelected = (selectedStorm === "all_storm" || row.storm_name === selectedStorm);
-            const isYearValid = (pastYears === 0 || (row.year >= startYear && row.year <= currentYear)); // Corrected year comparison
+            let isStormSelected;
+            if (selectedStormValue === "all_storm") {
+                isStormSelected = true;
+            } else {
+                const [selectedName, selectedYear] = selectedStormValue.split('_');
+                isStormSelected = row.storm_name === selectedName && row.year === parseInt(selectedYear);
+            }
+            
+            const isYearValid = (pastYears === 0 || (row.year >= startYear && row.year <= currentYear));
             const isLatValid = (!latMin || row.latitude >= latMin) && (!latMax || row.latitude <= latMax);
             const isLngValid = (!lngMin || row.longitude >= lngMin) && (!lngMax || row.longitude <= lngMax);
-            const isImpactfulValid = (impactfulFilter === "all" || row.impactful === impactfulFilter);
-            return isStormSelected && isYearValid && isLatValid && isLngValid && isImpactfulValid;
+            return isStormSelected && isYearValid && isLatValid && isLngValid;
         });
 
-        // Update both storm and property layers
         updateMap(filteredStormData);
         updatePropertyMap(filteredPropertyData);
     });
@@ -634,63 +625,82 @@ function updateMap(stormData) {
         }
     });
 
-    // Sort storm data by year
-    stormData.sort((a, b) => a.year - b.year);
+    // Keep the base tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-    // Create an array to hold the coordinates for the line
-    const lineCoordinates = [];
-
-    // Add circles and prepare line coordinates
+    // Group storm data by name and year
+    const stormGroups = {};
     stormData.forEach(point => {
-        const category = getStormCategory(point.wind_speed);
-        let color;
-
-        // Set color based on storm category
-        switch (category) {
-            case 'Depression':
-                color = '#ffffcc'; // Light yellow
-                break;
-            case 'Tropical Storm':
-                color = '#ffcc00'; // Yellow
-                break;
-            case 'Category 1':
-                color = '#ff9900'; // Orange
-                break;
-            case 'Category 2':
-                color = '#ff6600'; // Dark Orange
-                break;
-            case 'Category 3':
-                color = '#ff3300'; // Red
-                break;
-            case 'Category 4':
-                color = '#cc0000'; // Dark Red
-                break;
-            case 'Category 5':
-                color = '#990000'; // Maroon
-                break;
-            default:
-                color = 'gray'; // Default color
+        const key = `${point.storm_name}_${point.year}`;
+        if (!stormGroups[key]) {
+            stormGroups[key] = [];
         }
-
-        const circle = L.circleMarker([point.latitude, point.longitude], {
-            radius: point.wind_speed * 0.1, // Adjust size based on wind speed
-            color: color,
-            fillOpacity: 0.8
-        }).bindPopup(`Storm: ${point.storm_name}<br>
-                      Wind Speed: ${point.wind_speed} knots<br>
-                      Year: ${point.year}<br>
-                      Nature: ${translateNature(point.nature)}<br>
-                      Distance to Land: ${point.distance_to_land} km`)
-        .addTo(map);
-
-        // Add the point to the line coordinates
-        lineCoordinates.push([point.latitude, point.longitude]);
+        stormGroups[key].push(point);
     });
 
-    // Draw a polyline connecting the circles (if trajectories are enabled)
-    if (showTrajectories && lineCoordinates.length > 1) {
-        L.polyline(lineCoordinates, { color: 'blue' }).addTo(map);
-    }
+    // Process each storm group separately
+    Object.entries(stormGroups).forEach(([key, points]) => {
+        // Sort points by some criteria (you might want to add a timestamp field in your data)
+        points.sort((a, b) => {
+            // If you have a more specific ordering criteria, use it here
+            return a.distance_to_land - b.distance_to_land;
+        });
+
+        const lineCoordinates = [];
+
+        // Add circles and prepare line coordinates for this storm
+        points.forEach(point => {
+            const category = getStormCategory(point.wind_speed);
+            let color = getStormColor(category);
+
+            const circle = L.circleMarker([point.latitude, point.longitude], {
+                radius: point.wind_speed * 0.1,
+                color: color,
+                fillOpacity: 0.8
+            }).bindPopup(`Storm: ${point.storm_name}<br>
+                         Year: ${point.year}<br>
+                         Wind Speed: ${point.wind_speed} knots<br>
+                         Nature: ${translateNature(point.nature)}<br>
+                         Distance to Land: ${point.distance_to_land} km`)
+            .addTo(map);
+
+            lineCoordinates.push([point.latitude, point.longitude]);
+        });
+
+        // Draw trajectory for this storm group if enabled
+        if (showTrajectories && lineCoordinates.length > 1) {
+            // Use different colors for different years
+            const trajectoryColor = getRandomColor();
+            L.polyline(lineCoordinates, { 
+                color: trajectoryColor,
+                weight: 2,
+                opacity: 0.6
+            }).addTo(map);
+        }
+    });
+}
+
+function getStormColor(category) {
+    const colorMap = {
+        'Depression': '#ffffcc',
+        'Tropical Storm': '#ffcc00',
+        'Category 1': '#ff9900',
+        'Category 2': '#ff6600',
+        'Category 3': '#ff3300',
+        'Category 4': '#cc0000',
+        'Category 5': '#990000'
+    };
+    return colorMap[category] || 'gray';
+}
+
+function getRandomColor() {
+    const colors = [
+        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+        '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
 }
 
 function translateNature(natureCode) {
